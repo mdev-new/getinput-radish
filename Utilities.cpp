@@ -1,6 +1,10 @@
 #include "Utilities.h"
 
-char * itoa_(int i) {
+inline int _max(int a, int b) {
+    return ((a > b) ? a : b);
+}
+
+char* itoa_(int i) {
 	static char buffer[21] = { 0 };
 
 	char* c = buffer + 19; // buffer[20] must be \0
@@ -51,3 +55,38 @@ void usleep(__int64 usec) {
     Sleep(usec / 1000);
 #endif
 }
+
+//https://stackoverflow.com/questions/7009080/detecting-full-screen-mode-in-windows
+bool isFullscreen(HWND windowHandle)
+{
+    MONITORINFO monitorInfo = { 0 };
+    monitorInfo.cbSize = sizeof(MONITORINFO);
+    GetMonitorInfo(MonitorFromWindow(windowHandle, MONITOR_DEFAULTTOPRIMARY), &monitorInfo);
+
+    RECT windowRect;
+    GetWindowRect(windowHandle, &windowRect);
+
+    return windowRect.left == monitorInfo.rcMonitor.left
+           && windowRect.right == monitorInfo.rcMonitor.right
+           && windowRect.top == monitorInfo.rcMonitor.top
+           && windowRect.bottom == monitorInfo.rcMonitor.bottom;
+}
+
+void DisableCloseButton(HWND hwnd)
+{
+    EnableMenuItem(
+            GetSystemMenu(hwnd, FALSE),
+            SC_CLOSE,
+            MF_BYCOMMAND | MF_DISABLED | MF_GRAYED
+    );
+}
+
+void EnableCloseButton(HWND hwnd)
+{
+    EnableMenuItem(
+            GetSystemMenu(hwnd, FALSE),
+            SC_CLOSE,
+            MF_BYCOMMAND | MF_ENABLED
+    );
+}
+
