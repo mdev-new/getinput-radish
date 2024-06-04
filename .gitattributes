@@ -1,0 +1,5 @@
+Specification/** linguist-documentation
+oldsrc/** linguist-vendored
+
+*.h linguist-language=C++
+*.md linguist-documentation

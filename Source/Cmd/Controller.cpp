@@ -8,6 +8,10 @@ typedef struct _controller_value {
 	const char* str;
 } controller_value;
 
+typedef struct _vec2i {
+	int x, y;
+} vec2i;
+
 controller_value ctrl_values[] = {
 	{ 0x0001, "up" },
 	{ 0x0002, "down" },
@@ -60,10 +64,6 @@ const char* ControllerBtnEnvNames[] = {
 	"getinput_controller4_btns"
 };
 
-typedef struct _vec2i {
-	int x, y;
-} vec2i;
-
 vec2i process_stick(vec2i axes, short deadzone) {
 	const int deadzone_squared = deadzone * deadzone;
 
@@ -78,29 +78,30 @@ vec2i process_stick(vec2i axes, short deadzone) {
 	return axes;
 }
 
-VOID GETINPUT_SUB PROCESS_CONTROLLER(float deadzone) {
+VOID ControllerUpdate(float deadzone) {
 	static char buffer[256] = { 0 };
 	static char varName[32] = "getinput_controller";
 
-	XINPUT_STATE state;
-	DWORD dwResult, size = 0;
+	static XINPUT_STATE state;
+	static DWORD dwResult, size = 0;
 
 	for (char i = 0; i < 4; i++) {
 		ZeroMemory(&state, sizeof(XINPUT_STATE));
 		dwResult = XInputGetState(i, &state);
 
 		if (dwResult == ERROR_SUCCESS) { /* controller is connected */
-			ZeroMemory(buffer, sizeof buffer);
+			ZeroMemory(buffer, sizeof(buffer));
 
-			vec2i left_stick = process_stick({ state.Gamepad.sThumbLX, state.Gamepad.sThumbLY }, (int)(deadzone * (float)(0x7FFF)));
-			vec2i right_stick = process_stick({ state.Gamepad.sThumbRX, state.Gamepad.sThumbRY }, (int)(deadzone * (float)(0x7FFF)));
+			int deadzoneConstant = (int)(deadzone * (float)(32767));
+			vec2i left_stick = process_stick({ state.Gamepad.sThumbLX, state.Gamepad.sThumbLY }, deadzoneConstant);
+			vec2i right_stick = process_stick({ state.Gamepad.sThumbRX, state.Gamepad.sThumbRY }, deadzoneConstant);
 
-			ENV(ControllerEnvNames[i * 6 + 0], itoa_(state.Gamepad.bLeftTrigger));
-			ENV(ControllerEnvNames[i * 6 + 1], itoa_(state.Gamepad.bRightTrigger));
-			ENV(ControllerEnvNames[i * 6 + 2], itoa_(left_stick.x));
-			ENV(ControllerEnvNames[i * 6 + 3], itoa_(left_stick.y));
-			ENV(ControllerEnvNames[i * 6 + 4], itoa_(right_stick.x));
-			ENV(ControllerEnvNames[i * 6 + 5], itoa_(right_stick.y));
+			SetEnvironmentVariable(ControllerEnvNames[i * 6 + 0], itoa_(state.Gamepad.bLeftTrigger));
+			SetEnvironmentVariable(ControllerEnvNames[i * 6 + 1], itoa_(state.Gamepad.bRightTrigger));
+			SetEnvironmentVariable(ControllerEnvNames[i * 6 + 2], itoa_(left_stick.x));
+			SetEnvironmentVariable(ControllerEnvNames[i * 6 + 3], itoa_(left_stick.y));
+			SetEnvironmentVariable(ControllerEnvNames[i * 6 + 4], itoa_(right_stick.x));
+			SetEnvironmentVariable(ControllerEnvNames[i * 6 + 5], itoa_(right_stick.y));
 
 			int result;
 			for (WORD var = 0; var < 14; var++) {
@@ -109,7 +110,7 @@ VOID GETINPUT_SUB PROCESS_CONTROLLER(float deadzone) {
 						buffer[size++] = ',';
 					}
 
-    				sprintf(buffer + size, "%s", ctrl_values[var].str);
+					sprintf(buffer + size, "%s", ctrl_values[var].str);
 				}
 			}
 

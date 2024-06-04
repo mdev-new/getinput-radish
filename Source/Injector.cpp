@@ -4,9 +4,12 @@
 #include <Windows.h>
 #include <tlhelp32.h>
 
-#ifdef WIN2K_BUILD
+#ifndef MODERN_WINDOWS
 volatile HMODULE hDll = NULL;
 #endif
+
+#include "CmdMain.h"
+#include "ConhostMain.h"
 
 DWORD getppid() {
 	HANDLE hSnapshot;
@@ -59,15 +62,15 @@ DWORD getconhost() {
 			FileTimeToSystemTime(&fProcessTime, &sConhostTime);
 			CloseHandle(hProc);
 
-            // todo maybe check milliseconds
+			// todo maybe check milliseconds
 			if (
-                    sConhostTime.wSecond == sSelfTime.wSecond &&
-                sConhostTime.wMinute == sSelfTime.wMinute &&
-            sConhostTime.wHour == sSelfTime.wHour &&
-            sConhostTime.wDay == sSelfTime.wDay &&
-            sConhostTime.wMonth == sSelfTime.wMonth &&
-            sConhostTime.wYear == sSelfTime.wYear
-                ) {
+				sConhostTime.wSecond == sSelfTime.wSecond &&
+				sConhostTime.wMinute == sSelfTime.wMinute &&
+				sConhostTime.wHour == sSelfTime.wHour &&
+				sConhostTime.wDay == sSelfTime.wDay &&
+				sConhostTime.wMonth == sSelfTime.wMonth &&
+				sConhostTime.wYear == sSelfTime.wYear
+			) {
 				pid = pe32.th32ProcessID;
 				break;
 			}
@@ -84,19 +87,19 @@ cleanup:
 void hookSelfToProcess(DWORD pid) {
 	char filename[MAX_PATH];
 
-#ifdef WIN2K_BUILD
-    // For Win2k, just do a spin loop until the hDll is not written to...
-    // It's ugly, but works... (sometimes)
-
-	while (hDll == NULL);
-	Sleep(250); //delay to ensure it was REALLY written to
-#else
+#ifdef MODERN_WINDOWS
 	HMODULE hDll = NULL;
 	GetModuleHandleEx(
 		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
 		(LPCSTR)&getppid,
 		&hDll
 	);
+#else
+	// For Win2k, just do a spin loop until the hDll is not written to...
+	// It's ugly, but works... (sometimes)
+
+	while (hDll == NULL);
+	Sleep(250); //delay to ensure it was REALLY written to
 #endif
 
 	if (!GetModuleFileName(hDll, filename, MAX_PATH)) return;
@@ -117,47 +120,82 @@ void hookSelfToProcess(DWORD pid) {
 }
 
 NOMANGLE __declspec(dllexport) BOOL APIENTRY DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID lpReserved) {
-#ifdef WIN2K_BUILD
+#ifndef MODERN_WINDOWS
 	hDll = hInst;
 #endif
 
 	char name[MAX_PATH];
 	GetModuleFileName(NULL, name, sizeof(name));
-	if (lstrcmp("rundll32.exe", name + lstrlen(name) - 12) == 0) {
-		// MessageBoxA(0, "RUNDLL\n", "Window", 0);
+
+	bool isRunDll = lstrcmp("rundll32.exe", name + lstrlen(name) - 12) == 0;
+
+#ifdef MODERN_WINDOWS
+	bool isConhost = lstrcmp("conhost.exe", name + lstrlen(name) - 11) == 0;
+#endif
+
+	if (isRunDll) {
+		// Exit early if we're running inside RunDLL32
+		// we have no work to do here
 		return TRUE;
 	}
 
 	if (dwReason == DLL_PROCESS_ATTACH) {
 
-		if (lstrcmp("conhost.exe", name + lstrlen(name) - 11) == 0) {
-			return DllMain_conhost(hInst, dwReason, lpReserved);
+		DisableThreadLibraryCalls(hInst);
+
+#ifdef MODERN_WINDOWS
+
+		if (isConhost) {
+			return DllMain_load_conhost(hInst, dwReason, lpReserved);
 		}
 		else {
-			DWORD conhostPid = getconhost();
-			hookSelfToProcess(conhostPid);
 
-			return DllMain_cmd(hInst, dwReason, lpReserved);
+			DWORD conhostPid = getenvnum_ex("#getinputInternal#conhostPid", 0);
+
+			// If we haven't injected to conhost yet, atleast in the current env
+			// the logic is so that every child process that inherits from the
+			// process that has injected should in turn inherit this "magic"
+			// env var
+			if(conhostPid == 0) {
+				// We're not in conhost, so we inject ourselves into it...
+				conhostPid = getconhost();
+				SetEnvironmentVariable("#getinputInternal#conhostPid", itoa_(conhostPid))
+				hookSelfToProcess(conhostPid);
+			}
+
+			//...and then start our work
+			return DllMain_load_cmd(hInst, dwReason, lpReserved);
 		}
+
+#else
+		return DllMain_load_cmd(hInst, dwReason, lpReserved);
+#endif
+
 	} else if(dwReason == DLL_PROCESS_DETACH) {
-		if (lstrcmp("conhost.exe", name + lstrlen(name) - 11) == 0) {
+
+#ifdef MODERN_WINDOWS
+
+		if (isConhost) {
 			return DllMain_unload_conhost(hInst, dwReason, lpReserved);
 		}
 		else {
 			return DllMain_unload_cmd(hInst, dwReason, lpReserved);
 		}
+
+#else
+		return DllMain_unload_cmd(hInst, dwReason, lpReserved);
+#endif
+
 	}
 	return TRUE;
 }
 
-NOMANGLE __declspec(dllexport) void CALLBACK inject(HWND hwnd, HINSTANCE hinst, LPSTR lpszCmdLine, int nCmdShow) {
+NOMANGLE __declspec(dllexport) void CALLBACK hook(HWND hwnd, HINSTANCE hinst, LPSTR lpszCmdLine, int nCmdShow) {
 	hookSelfToProcess(getppid());
 	return;
 }
 
 NOMANGLE __declspec(dllexport) void CALLBACK version(HWND hwnd, HINSTANCE hinst, LPSTR lpszCmdLine, int nCmdShow) {
-	char buffer[128] = { 0 };
-	sprintf(buffer, "%s %s\n", __DATE__, __TIME__);
-	MessageBox(0, buffer, "Build date and time", 0);
+	MessageBox(0, __DATE__ __TIME__, "Build date and time", 0);
 	return;
 }
