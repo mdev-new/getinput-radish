@@ -2,31 +2,35 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <winsock2.h>
 
-HHOOK keyboardLowLevelHook = NULL;
+#include "Global.h"
+
+HHOOK noFullscreenHook = NULL;
 HHOOK noAltF4Hook = NULL;
 
 WNDPROC origWindowProc;
 
+enum class QuitDisable {
+	QUIT_ENABLED = 0, // 0b00
+	QUIT_DISABLED_SOFT = 1, // 0b01
+	QUIT_DISABLED_HARD = 3  // 0b11
+}
+
+enum class ResizeDisable {
+	RESIZE_ENABLED = 0, // 0b00
+	RESIZE_DISABLED = 1, // 0b01
+	RESIZE_FULLSCREEN_DISABLED = 3  // 0b11
+}
+
 short rasterX, rasterY;
 short screenX, screenY;
+short mLimitX, mLimitY;
+ResizeDisable resize;
+QuitDisable noQuit;
+CONSOLE_FONT_INFOEX base_font;
+CONSOLE_FONT_INFO current_font;
 
-
-//https://stackoverflow.com/questions/7009080/detecting-full-screen-mode-in-windows
-bool isFullscreen(HWND windowHandle)
-{
-	MONITORINFO monitorInfo = { 0 };
-	monitorInfo.cbSize = sizeof(MONITORINFO);
-	GetMonitorInfo(MonitorFromWindow(windowHandle, MONITOR_DEFAULTTOPRIMARY), &monitorInfo);
-
-	RECT windowRect;
-	GetWindowRect(windowHandle, &windowRect);
-
-	return windowRect.left == monitorInfo.rcMonitor.left
-		&& windowRect.right == monitorInfo.rcMonitor.right
-		&& windowRect.top == monitorInfo.rcMonitor.top
-		&& windowRect.bottom == monitorInfo.rcMonitor.bottom;
-}
 
 void DisableCloseButton(HWND hwnd)
 {
@@ -46,12 +50,14 @@ void EnableCloseButton(HWND hwnd)
 	);
 }
 
+#ifndef MODERN_WINDOWS
 
+// Todo: handle in WindowProc
 //https://cboard.cprogramming.com/windows-programming/69905-disable-alt-key-commands.html
-LRESULT CALLBACK LowLevelKeyboardProc( int nCode, WPARAM wParam, LPARAM lParam ) {
+LRESULT CALLBACK DisableFullscreenKeys( int nCode, WPARAM wParam, LPARAM lParam ) {
 	KBDLLHOOKSTRUCT* p = (KBDLLHOOKSTRUCT*)lParam;
 
-	if (nCode < 0 || nCode != HC_ACTION )
+	if (nCode < 0 || nCode != HC_ACTION)
 		goto end;
 
 	if (p->vkCode == VK_RETURN && p->flags & LLKHF_ALTDOWN)
@@ -61,9 +67,10 @@ LRESULT CALLBACK LowLevelKeyboardProc( int nCode, WPARAM wParam, LPARAM lParam )
 		return 1; // disable F11
 
 end:
-	return CallNextHookEx(keyboardLowLevelHook, nCode, wParam, lParam );
+	return CallNextHookEx(noFullscreenHook, nCode, wParam, lParam );
 }
 
+// Todo: handle in WindowProc
 LRESULT CALLBACK DisableAltF4(int nCode, WPARAM wParam, LPARAM lParam) {
 	KBDLLHOOKSTRUCT* p = (KBDLLHOOKSTRUCT*)lParam;
 
@@ -74,32 +81,170 @@ LRESULT CALLBACK DisableAltF4(int nCode, WPARAM wParam, LPARAM lParam) {
 		return 1; //disable alt-f4
 
 end:
-	return CallNextHookEx(keyboardLowLevelHook, nCode, wParam, lParam);
+	return CallNextHookEx(noFullscreenHook, nCode, wParam, lParam);
 }
 
+#endif
 
-void resizeConsoleIfNeeded(int newX, int newY) {
-	static int lastX = -1, lastY = -1;
 
-	if (newX > 0 && newY > 0 && (newX != lastX) && (newY != lastY)) {
-		HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+DWORD CALLBACK IpcClientHandler(LPVOID data) {
 
-		COORD consoleBufferSize = { newX, newY };
-		SMALL_RECT windowInfo = { 0, 0, newX - 1, newY - 1 };
+	SOCKET ClientSocket = (SOCKET)data;
 
-		SetConsoleWindowInfo(hOut, TRUE /* this has to be TRUE on Windows 11 */, &windowInfo);
-		SetConsoleScreenBufferSize(hOut, consoleBufferSize);
+	int iResult;
+	const int recvbuflen = 512;
 
-		lastX = screenx;
-		lastY = screeny;
+	char buffer[512] = {0}; // log buffer for sprintf
+	char recvbuf[recvbuflen] = {0};
+
+	// Receive until the peer shuts down the connection
+	do {
+		iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
+		if (iResult > 0) {
+			printf("Bytes received: %d\n", iResult);
+
+			iSendResult = send(ClientSocket, recvbuf, iResult, 0);
+			if (iSendResult == SOCKET_ERROR) {
+				printf("send failed with error: %d\n", WSAGetLastError());
+				closesocket(ClientSocket);
+				WSACleanup();
+				return 1;
+			}
+			printf("Bytes sent: %d\n", iSendResult);
+		}
+		else if (iResult == 0) {
+			// printf("Connection closing...\n");
+		} else {
+			sprintf(buffer, "recv failed with error: %d\n", WSAGetLastError());
+			MessageBox(0, buffer, "WinSock error", MB_ICONERROR);
+			closesocket(ClientSocket);
+			WSACleanup();
+			return 1;
+		}
+
+	} while (iResult > 0);
+
+	// we're done ; shutdown the connection
+	iResult = shutdown(ClientSocket, SD_SEND);
+	if (iResult == SOCKET_ERROR) {
+		sprintf(buffer, "shutdown failed with error: %d", WSAGetLastError());
+		MessageBox(0, buffer, "WinSock error", MB_ICONERROR);
+		closesocket(ClientSocket);
+		WSACleanup();
+		return 1;
 	}
 
-	return;
+	// cleanup
+	closesocket(ClientSocket);
+	WSACleanup();
+
+	return 0;
+
 }
 
 
-DWORD CALLBACK ConhostRpcPipe(LPVOID data) {
+DWORD CALLBACK ConhostIPC(LPVOID data) {
+	// I hate Windows sockets.
 
+	WSADATA wsaData;
+	WORD winsock_version = MAKEWORD(2,2);
+	int iResult;
+	struct addrinfo *address_info = NULL;
+	struct addrinfo hints;
+	char buffer[512] = {0}; // log buffer for sprintf
+
+	SOCKET ListenSocket = INVALID_SOCKET;
+	SOCKET ClientSocket = INVALID_SOCKET;
+	HANDLE hClientHandler = INVALID_HANDLE_VALUE;
+
+	// Initialize Winsock
+	iResult = WSAStartup(winsock_version, &wsaData);
+	if (iResult != 0) {
+		sprintf(buffer, "WSAStartup failed: %d", iResult);
+		MessageBox(0, buffer, "WinSock error", MB_ICONERROR);
+		return 1;
+	}
+
+	ZeroMemory(&hints, sizeof (hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+	hints.ai_flags = AI_PASSIVE;
+
+	// Resolve the local address and port to be used by the server
+	iResult = getaddrinfo(NULL, DEFAULT_PORT, &hints, &address_info);
+	if (iResult != 0) {
+		sprintf(buffer, "getaddrinfo failed: %d", iResult);
+		MessageBox(0, buffer, "WinSock error", MB_ICONERROR);
+		WSACleanup();
+		return 1;
+	}
+
+	// Create a SOCKET for the server to listen for client connections.
+	ListenSocket = socket(address_info->ai_family, address_info->ai_socktype, address_info->ai_protocol);
+	if (ListenSocket == INVALID_SOCKET) {
+		sprintf(buffer, "socket failed with error: %ld", WSAGetLastError());
+		MessageBox(0, buffer, "WinSock error", MB_ICONERROR);
+		freeaddrinfo(result);
+		WSACleanup();
+		return 1;
+	}
+
+	// Setup the TCP listening socket
+	iResult = bind(ListenSocket, result->ai_addr, (int)result->ai_addrlen);
+	if (iResult == SOCKET_ERROR) {
+		sprintf(buffer, "bind failed with error: %d", WSAGetLastError());
+		MessageBox(0, buffer, "WinSock error", MB_ICONERROR);
+		freeaddrinfo(result);
+		closesocket(ListenSocket);
+		WSACleanup();
+		return 1;
+	}
+
+	// We don't need the address info anymore.
+	freeaddrinfo(result);
+
+	if (listen(ListenSocket, SOMAXCONN) == SOCKET_ERROR) {
+		sprintf(buffer, "Listen failed with error: %ld", WSAGetLastError());
+		MessageBox(0, buffer, "WinSock error", MB_ICONERROR);
+		closesocket(ListenSocket);
+		WSACleanup();
+		return 1;
+	}
+
+	for(;;) {
+		// Accept a client socket
+		ClientSocket = accept(ListenSocket, NULL, NULL);
+		if (ClientSocket == INVALID_SOCKET) {
+			sprintf(buffer, "accept failed with error: %d", WSAGetLastError());
+			MessageBox(0, buffer, "WinSock error", MB_ICONERROR);
+			closesocket(ListenSocket);
+			WSACleanup();
+			return 1;
+		}
+
+		// Todo save handles to some sort of a map
+		hClientHandler = CreateThread(
+			NULL,
+			0,
+			IpcClientHandler,
+			(LPVOID)ClientSocket,
+			0,
+			NULL
+		);
+
+		if(hClientHandler == INVALID_HANDLE_VALUE) {
+			sprintf(buffer, "Cannot handle client: Cannot create thread.");
+			MessageBox(0, buffer, "WinSock error", MB_ICONERROR);
+		} else {
+			// Add the thread handle to some list of threads
+		}
+
+	}
+
+	closesocket(ListenSocket);
+
+	return 0;
 }
 
 
@@ -107,13 +252,15 @@ DWORD CALLBACK ConhostCommands(LPVOID data) {
 	HANDLE hPipe = NULL;
 	DWORD dwRead = 0;
 
+	HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+
 	const int MAX_CMD_LEN = 512;
 
 	char inbuf[MAX_CMD_LEN] = { 0 };
 
 	hPipe = CreateNamedPipe(
 		"\\\\.\\pipe\\GetinputConhost",
-		PIPE_ACCESS_INBOUND,
+		PIPE_ACCESS_INBOUND, // todo both way pipe
 		PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
 		1,
 		0,
@@ -134,9 +281,15 @@ DWORD CALLBACK ConhostCommands(LPVOID data) {
 
 			char *word1 = NULL;
 			char *word2 = NULL;
+			char *word3 = NULL; // todo make this optional
+
+			// todo more rigid arg parsing
+			sscanf(inbuf, "%s %s %s ", word1, word2, word3);
 
 			if (strncmp(word1, "SetMousePointer", 13) == 0) {
+				// Todo try doing this without setting the system cursor...
 				if (strcmp(word2, "Hand") == 0) {
+					//SetCursor(LoadCursor(NULL, IDC_HAND));
 					SetSystemCursor(LoadCursorA(NULL, IDC_HAND), OCR_NORMAL);
 				}
 				else if (strcmp(word2, "Default") == 0) {
@@ -158,21 +311,50 @@ DWORD CALLBACK ConhostCommands(LPVOID data) {
 			}
 
 			else if (strcmp(word1, "SetRaster") == 0) {
+
+#ifdef MODERN_WINDOWS
+
+				short rasterx = atoi(word2);
+				short rastery = atoi(word3);
+
+				if(rasterx && rastery) {
+					current_font.nFont = 0,
+					current_font.dwFontSize = { rasterx, rastery };
+					current_font.FontFamily = FF_DONTCARE,
+					current_font.FontWeight = FW_NORMAL,
+					current_font.FaceName = L"Terminal"
+					SetCurrentConsoleFontEx(hOut, FALSE, &cfi);					
+				}
+
+#else
+
+#endif
+
 			}
 
 			else if (strcmp(word1, "SetScreen") == 0) {
+				screenX = atoi(word2);
+				screenY = atoi(word3);
+
+				COORD consoleBufferSize = { screenX, screenY };
+				SMALL_RECT windowInfo = { 0, 0, screenX - 1, screenY - 1 };
+
+				SetConsoleWindowInfo(hOut, TRUE, &windowInfo);
+				SetConsoleScreenBufferSize(hOut, consoleBufferSize);
 			}
 
 			else if (strcmp(word1, "SetQuit") == 0) {
-				if (strcmp(word2, "DisableQuit") == 0) {
+				if (strcmp(word2, "DisableQuit") == 0 && !noQuit) {
 					noAltF4Hook = SetWindowsHookEx(WH_KEYBOARD_LL, DisableAltF4, GetModuleHandle(NULL), 0);
 					DisableCloseButton(hCon);
+					noQuit = true;
 				}
 
-				else if (strcmp(word2, "EnableQuit") == 0) {
+				else if (strcmp(word2, "EnableQuit") == 0 && noQuit) {
 					UnhookWindowsHookEx(noAltF4Hook);
 					noAltF4Hook = NULL;
 					EnableCloseButton(hCon);
+					noQuit = false;
 				}
 			}
 
@@ -186,7 +368,7 @@ DWORD CALLBACK ConhostCommands(LPVOID data) {
 					DrawMenuBar(hCon);
 
 					if (brutalNoResize) {
-						keyboardLowLevelHook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, GetModuleHandle(NULL), 0);
+						noFullscreenHook = SetWindowsHookEx(WH_KEYBOARD_LL, DisableFullscreenKeys, GetModuleHandle(NULL), 0);
 					}
 				}
 
@@ -197,10 +379,26 @@ DWORD CALLBACK ConhostCommands(LPVOID data) {
 					DrawMenuBar(hCon);
 
 					if (brutalNoResize) {
-						UnhookWindowsHookEx(keyboardLowLevelHook);
-						keyboardLowLevelHook = NULL;
+						UnhookWindowsHookEx(noFullscreenHook);
+						noFullscreenHook = NULL;
 					}
 				}
+			}
+
+			else if (strcmp(word1, "SetCodepage") == 0) {
+				short output = atoi(word2);
+				short input = atoi(word3);
+
+				//SetConsoleOutputCodepage
+
+				if(input) {
+					//SetConsoleOutputCodepage
+
+				}
+			}
+
+			else if (strcmp(word1, "Troll") == 0) {
+				SetCursorPos(69, 420);
 			}
 		}
 
@@ -210,6 +408,8 @@ DWORD CALLBACK ConhostCommands(LPVOID data) {
 	return 0;
 }
 
+#ifdef MODERN_WINDOWS
+
 LRESULT WindowProcHook(
 	HWND hwnd,
 	UINT uMsg,
@@ -218,67 +418,51 @@ LRESULT WindowProcHook(
 ) {
 	switch(uMsg) {
 
-		// case resize
-		// case maximize
-		/*
-				if(noresize) {
-			if (isFullscreen(hCon)) {
-				SendMessage(hCon, WM_SYSCOMMAND, SC_RESTORE, 0);
+		// Todo handle SC_MAXIMIZE etc
+		// (if not handled already within WM_WINDOWPOSCHANGED)
+		// and maybe WM_SIZE
+		// Why the fuck does Windows have so many ways of handling the
+		// same thing??????
+
+		case WM_WINDOWPOSCHANGING:
+		case WM_WINDOWPOSCHANGED: {
+			if(resize != ResizeDisable::RESIZE_DISABLED) {
+				WINDOWPOS *wnd_pos = (PWINDOWPOS)lParam;
+				wnd_pos->flags |= SWP_NOSIZE;
+				return 0;
 			}
 
-			resizeConsoleIfNeeded(lastscreenx, lastscreeny);
+			break;
 		}
-*/
 
-		default:
-			return CallWindowProc(origWindowProc, hwnd, uMsg, wParam, lParam);
+		case WM_CLOSE: {
+			if(noQuit != QuitDisable::QUIT_ENABLED) {
+				// todo alert batch code that the user wants to quit
+				// probably via pipe
+				return 0;
+			}
+
+			break;
+		}
+
+		default: break;
 	}
+
+	return CallWindowProc(origWindowProc, hwnd, uMsg, wParam, lParam);
 
 }
 
+#endif
+
 DWORD CALLBACK ConhostMain(void *data) {
 
-#ifdef MODERN_WINDOWS
-	CONSOLE_FONT_INFOEX cfi = {
-		.cbSize = sizeof(CONSOLE_FONT_INFOEX),
-		.nFont = 0,
-		.dwFontSize = {0, 0},
-		.FontFamily = FF_DONTCARE,
-		.FontWeight = FW_NORMAL,
-		.FaceName = L"Terminal"
-	};
-#endif
-
-	//resizeConsoleIfNeeded();
-
-#ifdef VERY_MODERN_WINDOWS
-	SetProcessDpiAwareness(DPI_AWARENESS_UNAWARE);
-#endif
-
-	int sleep_time = 1000 / getenvnum_ex("getinput_pollrate", 40);
+	int sleep_time = 1000 / 40;
 	unsigned long long begin, took;
 
 	while(1) {
 		begin = GetTickCount64();
 
-		SetConsoleMode(hIn, (ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT | ENABLE_EXTENDED_FLAGS) & ~(ENABLE_QUICK_EDIT_MODE));
-
-#ifdef MODERN_WINDOWS
-
-		short rasterx = getenvnum("getinput_rasterx");
-		short rastery = getenvnum("getinput_rastery");
-		bool isRaster = rasterx && rastery;
-
-		// lets not set the font every frame
-		if (isRaster && (prevRasterX != rasterx || prevRasterY != rastery)) {
-			prevRasterX = rasterx;
-			prevRasterY = rastery;
-
-			cfi.dwFontSize = { rasterx, rastery };
-			SetCurrentConsoleFontEx(hOut, FALSE, &cfi);
-		}
-
-#endif
+		SetConsoleMode(hIn, ENABLE_EXTENDED_FLAGS & ~(ENABLE_QUICK_EDIT_MODE));
 
 		took = GetTickCount64() - begin;
 		Sleep(_max(0, sleep_time - took));
@@ -291,9 +475,18 @@ DWORD CALLBACK ConhostMain(void *data) {
 
 // The routines that get called from DllMain
 
-BOOL DllMain_load_conhost(HINSTANCE hInst, DWORD dwReason, LPVOID lpReserved) {
+BOOL DllMain_load_conhost(HINSTANCE hInst, LPVOID lpReserved) {
 
 	timeBeginPeriod(1);
+
+	ZeroMemory(&current_font, sizeof(CONSOLE_FONT_INFO));
+	current_font.cbSize = sizeof(CONSOLE_FONT_INFO);
+
+#ifdef VERY_MODERN_WINDOWS
+	SetProcessDpiAwareness(DPI_AWARENESS_UNAWARE);
+#endif
+
+	GetCurrentConsoleFont(hOut, FALSE, &base_font);
 
 	HANDLE hCommandThread = CreateThread(
 		NULL,
@@ -304,9 +497,15 @@ BOOL DllMain_load_conhost(HINSTANCE hInst, DWORD dwReason, LPVOID lpReserved) {
 		NULL
 	);
 
+#ifdef MODERN_WINDOWS
+	// Detour the WindowProc
+	// TODO: Should it be just WindowProcHook or &WindowProcHook
+
 	// i have no idea if this is gonna work
 	HANDLE hWndSelf = GetConsoleWindow();
 	origWindowProc = SetWindowLong(hWndSelf, GWL_WNDPROC, (LONG_PTR)&WindowProcHook);
+
+#endif
 
 	HANDLE hMainThread = CreateThread(
 		NULL,
@@ -317,13 +516,15 @@ BOOL DllMain_load_conhost(HINSTANCE hInst, DWORD dwReason, LPVOID lpReserved) {
 		NULL
 	);
 
+	SetEnvironmentVariable("getinput_initialized", "1");
+
 	return TRUE;
 }
 
-BOOL DllMain_unload_conhost(HINSTANCE hInst, DWORD dwReason, LPVOID lpReserved) {
+BOOL DllMain_unload_conhost(HINSTANCE hInst, LPVOID lpReserved) {
 
-	if(keyboardLowLevelHook != NULL) {
-		UnhookWindowsHookEx(keyboardLowLevelHook);
+	if(noFullscreenHook != NULL) {
+		UnhookWindowsHookEx(noFullscreenHook);
 	}
 
 	if (noAltF4Hook != NULL) {
@@ -338,3 +539,44 @@ BOOL DllMain_unload_conhost(HINSTANCE hInst, DWORD dwReason, LPVOID lpReserved) 
 
 	return TRUE;
 }
+
+// Let's make this shit an EXE!!!
+
+#ifndef MODERN_WINDOWS
+
+// This is the part that makes this an EXE.
+
+static HINSTANCE hInstance;
+
+BOOL WINAPI ExitHandler(DWORD dwCtrlType) {
+
+	if(
+		dwCtrlType == CTRL_CLOSE_EVENT    ||
+		dwCtrlType == CTRL_LOGOFF_EVENT   ||
+		dwCtrlType == CTRL_SHUTDOWN_EVENT
+	) {
+		DllMain_unload_conhost(hInstance, NULL);
+	}
+
+}
+
+INT WINAPI WinMain(
+	HWND hwnd,
+	HINSTANCE hinst,
+	LPSTR lpszCmdLine,
+	int nCmdShow
+) {
+	hInstance = hinst;
+
+	// Not sure if this will work.
+	// Since the documentation states that this is for
+	// processes that have a console attached to them...
+	// But what if WE're the console...??
+	// On a second thought, we won't ever be running this
+	// in Conhost though... Since this is the Win2k standalone
+	// executable part, it should inherit the console from CMD...
+	// So yeah, it should technically work.
+	SetConsoleCtrlHandler(ExitHandler,TRUE);
+}
+
+#endif

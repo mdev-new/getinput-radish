@@ -4,7 +4,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
-LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK LLMouseHook(int nCode, WPARAM wParam, LPARAM lParam) {
 	MSLLHOOKSTRUCT* info = (MSLLHOOKSTRUCT*)lParam;
 	short wheelDelta = GET_WHEEL_DELTA_WPARAM(info->mouseData);
 
@@ -18,7 +18,7 @@ LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
 }
 
 DWORD CALLBACK MouseMessageThread(void* data) {
-	HHOOK mouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, NULL, 0);
+	HHOOK mouseHook = SetWindowsHookEx(WH_MOUSE_LL, LLMouseHook, NULL, 0);
 
 	MSG msg;
 	while (GetMessage(&msg, NULL, 0, 0)) {
@@ -43,9 +43,18 @@ void MouseInit() {
 		0,
 		NULL
 	);
+
+	if(hMouseMsgThread == INVALID_HANDLE_VALUE) {
+
+	}
 }
 
 void MouseUpdate() {
+
+#ifdef MODERN_WINDOWS
+	static CONSOLE_FONT_INFO info = { 0 };
+	static const COORD* fontSz = &info.dwFontSize;
+#endif
 
 #ifdef VERY_MODERN_WINDOWS
 	static HMONITOR monitor;
@@ -55,9 +64,7 @@ void MouseUpdate() {
 	static BYTE buttons;
 	static int mouseX, mouseY;
 	static int scale = 100, prevScale = scale;
-	static float fscalex = (float)(scale) / 100.f, fscaley = fscalex;
-	static CONSOLE_FONT_INFO info = { 0 };
-	static const COORD* fontSz = &info.dwFontSize;
+	static float fscalex = scale / 100.f, fscaley = fscalex;
 
 	static const HANDLE hCon = GetConsoleWindow();
 	static const HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -69,13 +76,18 @@ void MouseUpdate() {
 		(GetKeyState(VK_MBUTTON) & 0x80) >> 5;
 
 	// Handle "invert mouse buttons" setting
-	buttons |= (buttons & 0b11) *
+	buttons |= (buttons & 3) *
 						 (buttons && GetSystemMetrics(SM_SWAPBUTTON));
 
 	SetEnvironmentVariable("getinput_click", itoa_(buttons));
 
 	// Cursor position
+#ifdef MODERN_WINDOWS
 	GetPhysicalCursorPos(&pt);
+#else
+	GetCursorPos(&pt);
+#endif
+
 	ScreenToClient(hCon, &pt);
 
 	GetCurrentConsoleFont(hOut, FALSE, &info);
@@ -94,7 +106,7 @@ void MouseUpdate() {
 		else {
 			int roundedScale = (scale - 100 * (scale / 100));
 
-			// what if scale == _50????
+			// TODO: what if scale == _50????
 			if (roundedScale < 50) {
 				fscalex = fscaley = (float)(((scale + 50) * 100) / 10000L);
 			}
@@ -112,19 +124,15 @@ void MouseUpdate() {
 	mouseX = int_ceil((float)pt.x / ((float)fontSz->X * fscalex));
 	mouseY = int_ceil((float)pt.y / ((float)fontSz->Y * fscaley));
 
-	// Todo lower limit in addition to this current upper
-	int lmx = getenvnum("getinput_limitMouseX");
-	int lmy = getenvnum("getinput_limitMouseY");
-	bool bLimitMouse = lmx && lmy;
-
+	// Limiting the range will be done on the batch side of things
 	SetEnvironmentVariable(
 		"getinput_mousexpos",
-		(bLimitMouse && mouseX > lmx) ? NULL : itoa_(mouseX)
+		itoa_(mouseX)
 	);
 
 	SetEnvironmentVariable(
 		"getinput_mouseypos",
-		(bLimitMouse && mouseY > lmy) ? NULL : itoa_(mouseY)
+		itoa_(mouseY)
 	);
 
 }

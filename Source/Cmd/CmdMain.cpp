@@ -4,14 +4,17 @@
 #include <Windows.h>
 #include <timeapi.h>
 
+#include <winsock2.h>
+
 #include "Mouse.h"
 #include "Keyboard.h"
+#include "Global.h"
 
 #ifdef MODERN_WINDOWS
 #	include "Controller.h"
 #	include <atomic>
-  using std::atomic_int;
-  using std::atomic_float;
+	using std::atomic_int;
+	using std::atomic_float;
 #else
 #	define atomic_int volatile int
 #	define atomic_float volatile float
@@ -19,6 +22,9 @@
 
 atomic_int sleep_time = 1000 / 40;
 atomic_float deadzone = 0.24f;
+
+SOCKET ipc_socket = INVALID_SOCKET;
+
 
 DWORD CALLBACK CmdCommands(LPVOID data) {
 	HANDLE hPipe = NULL;
@@ -31,12 +37,11 @@ DWORD CALLBACK CmdCommands(LPVOID data) {
 	int pid = GetCurrentProcessId();
 
 	char pipeName[128] = {0};
-	strcat(pipeName, "\\\\.\\pipe\\GetinputCmd");
-	strcat(pipeName, itoa_(pid));
+	sprintf(pipeName, "\\\\.\\pipe\\GetinputCmd%d", pid);
 
 	hPipe = CreateNamedPipe(
 		pipeName,
-		PIPE_ACCESS_INBOUND,
+		PIPE_ACCESS_INBOUND, // todo both way pipe
 		PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
 		1,
 		0,
@@ -55,13 +60,20 @@ DWORD CALLBACK CmdCommands(LPVOID data) {
 			/* add terminating zero */
 			inbuf[dwRead] = '\0';
 
-			if (strcmp(inbuf, "setMouseLimits") == 0) {
+			char *word1 = NULL;
+			char *word2 = NULL;
+			char *word3 = NULL; // todo make this optional
+
+			// todo more rigid arg parsing
+			sscanf(inbuf, "%s %s %s ", word1, word2, word3);
+
+			if (strcmp(inbuf, "SetMouseLimits") == 0) {
 			}
 
-			else if (strcmp(inbuf, "setCtrlDeadzone") == 0) {
+			else if (strcmp(inbuf, "SetDeadzone") == 0) {
 			}
 
-			else if (strcmp(inbuf, "setPollRate") == 0) {
+			else if (strcmp(inbuf, "SetPollRate") == 0) {
 			}
 		}
 
@@ -76,6 +88,7 @@ DWORD CALLBACK CmdMain(void *data) {
 
 	BOOL inFocus = FALSE;
 
+	int sleep_time = 1000 / getenvnum_ex("getinput_pollrate", 40);
 	unsigned long long begin, took;
 
 	while(1) {
@@ -101,12 +114,81 @@ DWORD CALLBACK CmdMain(void *data) {
 
 }
 
-// The routines that get called from DllMain
 
-BOOL DllMain_load_cmd(HINSTANCE hInst, DWORD dwReason, LPVOID lpReserved) {
+SOCKET InitSocket(const char *address, const char *port) {
+	WSADATA wsaData;
+	SOCKET ConnectSocket = INVALID_SOCKET;
+	struct addrinfo *result = NULL, *ptr = NULL, hints;
+	int iResult;
+	int recvbuflen = DEFAULT_BUFLEN;
+	WORD winsock_version = MAKEWORD(2,2);
+
+	// Initialize Winsock
+	iResult = WSAStartup(winsock_version, &wsaData);
+	if (iResult != 0) {
+		printf("WSAStartup failed with error: %d\n", iResult);
+		return 1;
+	}
+
+	ZeroMemory(&hints, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	// Resolve the server address and port
+	iResult = getaddrinfo(address, port, &hints, &result);
+	if (iResult != 0) {
+		printf("getaddrinfo failed with error: %d\n", iResult);
+		WSACleanup();
+		return 1;
+	}
+
+	// Attempt to connect to an address until one succeeds
+	for(ptr=result; ptr != NULL; ptr=ptr->ai_next) {
+
+		// Create a SOCKET for connecting to server
+		ConnectSocket = socket(
+			ptr->ai_family,
+			ptr->ai_socktype,
+			ptr->ai_protocol
+		);
+
+		if (ConnectSocket == INVALID_SOCKET) {
+			printf("socket failed with error: %ld\n", WSAGetLastError());
+			WSACleanup();
+			return 1;
+		}
+
+		// Connect to server.
+		iResult = connect( ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
+		if (iResult == SOCKET_ERROR) {
+			closesocket(ConnectSocket);
+			ConnectSocket = INVALID_SOCKET;
+			continue;
+		}
+		break;
+	}
+
+	freeaddrinfo(result);
+
+	if (ConnectSocket == INVALID_SOCKET) {
+		printf("Unable to connect to server!\n");
+		WSACleanup();
+		return 1;
+	}
+
+	return ConnectSocket;
+
+}
+
+
+// The routines that get called from the real DllMain
+
+BOOL DllMain_load_cmd(HINSTANCE hInst, LPVOID lpReserved) {
 	timeBeginPeriod(1);
 
 	MouseInit();
+	ipc_socket = InitSocket("127.0.0.1", IPC_PORT);
 
 	HANDLE hCommandThread = CreateThread(
 		NULL,
@@ -117,8 +199,6 @@ BOOL DllMain_load_cmd(HINSTANCE hInst, DWORD dwReason, LPVOID lpReserved) {
 		NULL
 	);
 
-	SetEnvironmentVariable("getinputInitialized", "1");
-
 	HANDLE hMainThread = CreateThread(
 		NULL,
 		0,
@@ -128,15 +208,22 @@ BOOL DllMain_load_cmd(HINSTANCE hInst, DWORD dwReason, LPVOID lpReserved) {
 		NULL
 	);
 
+	SetEnvironmentVariable("getinputInitialized", "1");
+	SetEnvironmentVariable("PipeId", itoa_(GetCurrentProcessId()));
+
 	return TRUE;
 }
 
-BOOL DllMain_unload_cmd(HINSTANCE hInst, DWORD dwReason, LPVOID lpReserved) {
+BOOL DllMain_unload_cmd(HINSTANCE hInst, LPVOID lpReserved) {
+
+	timeEndPeriod();
 
 	MouseDeinit();
 	KeyboardDeinit();
 
-	timeEndPeriod();
+	closesocket(ipc_socket);
+	ipc_socket = INVALID_SOCKET;
+	WSACleanup();
 
 	return TRUE;
 }
