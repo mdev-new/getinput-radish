@@ -1,0 +1,208 @@
+Optimalizuj¡c¡ kompil tor C/C++ spolecnosti Microsoft (R) verze 19.38.33129 pro procesory x64
+Copyright (C) Microsoft Corporation. Vsechna pr va vyhrazena.
+
+Injector.cpp
+Utilities.cpp
+Audio.cpp
+Conhost\Audio.cpp(16): error C2143: Chyba syntaxe: Chyb¡ ; pred *.
+Conhost\Audio.cpp(16): error C4430: Chybej¡c¡ specifik tor typu - predpokl d  se typ int. Pozn mka: C++ nepodporuje typ default-int.
+Conhost\Audio.cpp(16): error C2238: neocek van‚ tokeny pred: ;
+Conhost\Audio.cpp(17): error C2143: Chyba syntaxe: Chyb¡ ; pred *.
+Conhost\Audio.cpp(17): error C4430: Chybej¡c¡ specifik tor typu - predpokl d  se typ int. Pozn mka: C++ nepodporuje typ default-int.
+Conhost\Audio.cpp(17): error C2238: neocek van‚ tokeny pred: ;
+Conhost\Audio.cpp(31): error C2061: Chyba syntaxe: identifik tor FMOD_VECTOR
+Conhost\Audio.cpp(32): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(33): error C3861: index_to_id: identifik tor se nenasel
+Conhost\Audio.cpp(36): error C2065: vec: nedeklarovany identifik tor
+Conhost\Audio.cpp(37): error C2065: vec: nedeklarovany identifik tor
+Conhost\Audio.cpp(37): error C2065: FMOD_VECTOR: nedeklarovany identifik tor
+Conhost\Audio.cpp(53): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(57): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(58): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(62): error C3861: free: identifik tor se nenasel
+Conhost\Audio.cpp(72): error C3861: malloc: identifik tor se nenasel
+Conhost\Audio.cpp(73): error C3861: IF_ERR_EXIT: identifik tor se nenasel
+Conhost\Audio.cpp(76): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(77): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(78): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(78): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(80): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(76): error C7555: Pouz¡v n¡ urcenych inicializ toru vyzaduje alespon /std:c++20.
+Conhost\Audio.cpp(81): error C4576: Typ v z vork ch n sledovany seznamem inicializ toru je nestandardn¡ explicitn¡ syntaxe prevodu typu.
+Conhost\Audio.cpp(82): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(83): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(84): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(87): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(99): error C2065: FMOD_SOUND: nedeklarovany identifik tor
+Conhost\Audio.cpp(99): error C2275: sound: Ocek val se vyraz m¡sto typu.
+Conhost\Audio.cpp(99): error C2065: FMOD_3D: nedeklarovany identifik tor
+Conhost\Audio.cpp(99): error C2065: FMOD_LOOP_NORMAL: nedeklarovany identifik tor
+Conhost\Audio.cpp(99): error C2065: FMOD_3D_LINEARROLLOFF: nedeklarovany identifik tor
+Conhost\Audio.cpp(99): error C3861: load_audio: identifik tor se nenasel
+Conhost\Audio.cpp(100): error C2275: sound: Ocek val se vyraz m¡sto typu.
+Conhost\Audio.cpp(100): error C3861: FMOD_Sound_Set3DMinMaxDistance: identifik tor se nenasel
+Conhost\Audio.cpp(100): error C2065: FMOD_OK: nedeklarovany identifik tor
+Conhost\Audio.cpp(100): error C3861: IF_ERR_EXIT: identifik tor se nenasel
+Conhost\Audio.cpp(106): error C2065: FMOD_DEFAULT: nedeklarovany identifik tor
+Conhost\Audio.cpp(106): error C3861: load_audio: identifik tor se nenasel
+Conhost\Audio.cpp(112): error C2065: FMOD_LOOP_NORMAL: nedeklarovany identifik tor
+Conhost\Audio.cpp(112): error C2065: FMOD_2D: nedeklarovany identifik tor
+Conhost\Audio.cpp(112): error C2065: FMOD_CREATESTREAM: nedeklarovany identifik tor
+Conhost\Audio.cpp(112): error C3861: load_audio: identifik tor se nenasel
+Conhost\Audio.cpp(116): error C2143: Chyba syntaxe: Chyb¡ ; pred *.
+Conhost\Audio.cpp(116): error C4430: Chybej¡c¡ specifik tor typu - predpokl d  se typ int. Pozn mka: C++ nepodporuje typ default-int.
+Conhost\Audio.cpp(117): error C2061: Chyba syntaxe: identifik tor FMOD_MODE
+Conhost\Audio.cpp(117): error C4430: Chybej¡c¡ specifik tor typu - predpokl d  se typ int. Pozn mka: C++ nepodporuje typ default-int.
+Conhost\Audio.cpp(117): error C2059: chyba syntaxe: {
+Conhost\Audio.cpp(117): error C2143: Chyba syntaxe: Chyb¡ ; pred {.
+Conhost\Audio.cpp(117): error C2447: {: Chyb¡ hlavicka funkce. (Form ln¡ seznam ve star‚m stylu?)
+Conhost\Audio.cpp(138): error C2061: Chyba syntaxe: identifik tor FMOD_VECTOR
+Conhost\Audio.cpp(140): error C2065: vec: nedeklarovany identifik tor
+Conhost\Audio.cpp(143): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(153): error C2065: FMOD_VECTOR: nedeklarovany identifik tor
+Conhost\Audio.cpp(153): error C2146: Chyba syntaxe: Chyb¡ ; pred identifik torem vec.
+Conhost\Audio.cpp(153): error C2065: vec: nedeklarovany identifik tor
+Conhost\Audio.cpp(154): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(154): error C2065: vec: nedeklarovany identifik tor
+Conhost\Audio.cpp(156): error C2065: FMOD_BOOL: nedeklarovany identifik tor
+Conhost\Audio.cpp(156): error C2146: Chyba syntaxe: Chyb¡ ; pred identifik torem is_playing.
+Conhost\Audio.cpp(156): error C2065: is_playing: nedeklarovany identifik tor
+Conhost\Audio.cpp(157): error C2039: chan nen¡ clenem: sound.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(157): error C2065: is_playing: nedeklarovany identifik tor
+Conhost\Audio.cpp(157): error C3861: FMOD_Channel_IsPlaying: identifik tor se nenasel
+Conhost\Audio.cpp(158): error C2065: FMOD_BOOL: nedeklarovany identifik tor
+Conhost\Audio.cpp(158): error C2146: Chyba syntaxe: Chyb¡ ; pred identifik torem is_virtual.
+Conhost\Audio.cpp(158): error C2065: is_virtual: nedeklarovany identifik tor
+Conhost\Audio.cpp(159): error C2039: chan nen¡ clenem: sound.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(159): error C2065: is_virtual: nedeklarovany identifik tor
+Conhost\Audio.cpp(159): error C3861: FMOD_Channel_IsVirtual: identifik tor se nenasel
+Conhost\Audio.cpp(160): error C2065: is_playing: nedeklarovany identifik tor
+Conhost\Audio.cpp(160): error C2065: is_virtual: nedeklarovany identifik tor
+Conhost\Audio.cpp(161): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(161): error C7624: N zev typu sound se nemuze objevit na prav‚ strane vyrazu pro pr¡stup ke clenu tr¡dy.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(161): error C2039: chan nen¡ clenem: sound.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(161): error C3861: FMOD_System_PlaySound: identifik tor se nenasel
+Conhost\Audio.cpp(163): error C2039: chan nen¡ clenem: sound.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(163): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(163): error C3861: FMOD_Channel_SetVolume: identifik tor se nenasel
+Conhost\Audio.cpp(165): error C2039: chan nen¡ clenem: sound.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(165): error C2065: vec: nedeklarovany identifik tor
+Conhost\Audio.cpp(165): error C3861: FMOD_Channel_Set3DAttributes: identifik tor se nenasel
+Conhost\Audio.cpp(171): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(171): error C3861: FMOD_System_LockDSP: identifik tor se nenasel
+Conhost\Audio.cpp(174): error C2039: chan nen¡ clenem: sound.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(174): error C3861: FMOD_Channel_GetDSPClock: identifik tor se nenasel
+Conhost\Audio.cpp(181): error C2039: chan nen¡ clenem: sound.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(181): error C3861: FMOD_Channel_GetFadePoints: identifik tor se nenasel
+Conhost\Audio.cpp(183): error C2039: chan nen¡ clenem: sound.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(183): error C3861: FMOD_Channel_GetFadePoints: identifik tor se nenasel
+Conhost\Audio.cpp(185): error C2039: chan nen¡ clenem: sound.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(185): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(185): error C3861: FMOD_Channel_RemoveFadePoints: identifik tor se nenasel
+Conhost\Audio.cpp(191): error C2039: chan nen¡ clenem: sound.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(191): error C3861: FMOD_Channel_AddFadePoint: identifik tor se nenasel
+Conhost\Audio.cpp(192): error C2039: chan nen¡ clenem: sound.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(192): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(192): error C3861: FMOD_Channel_AddFadePoint: identifik tor se nenasel
+Conhost\Audio.cpp(194): error C2039: chan nen¡ clenem: sound.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(194): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(194): error C3861: FMOD_Channel_AddFadePoint: identifik tor se nenasel
+Conhost\Audio.cpp(195): error C2039: chan nen¡ clenem: sound.
+Conhost\Audio.cpp(15): note: viz deklarace: sound
+Conhost\Audio.cpp(195): error C2027: Pouzit¡ nedefinovan‚ho typu param_store
+Conhost\Audio.cpp(31): note: viz deklarace: param_store
+Conhost\Audio.cpp(195): fatal error C1003: Pocet chyb prekracuje 100; kompilace se zastavuje.
+ConhostMain.cpp
+Conhost\ConhostMain.cpp(185): error C2065: DEFAULT_PORT: nedeklarovany identifik tor
+Conhost\ConhostMain.cpp(309): error C2065: OCR_NORMAL: nedeklarovany identifik tor
+Conhost\ConhostMain.cpp(312): error C2065: OCR_NORMAL: nedeklarovany identifik tor
+Conhost\ConhostMain.cpp(316): error C2065: OCR_NORMAL: nedeklarovany identifik tor
+Conhost\ConhostMain.cpp(319): error C2065: OCR_NORMAL: nedeklarovany identifik tor
+Conhost\ConhostMain.cpp(322): error C2065: OCR_NORMAL: nedeklarovany identifik tor
+Conhost\ConhostMain.cpp(325): error C2065: OCR_NORMAL: nedeklarovany identifik tor
+Conhost\ConhostMain.cpp(341): error C3863: Typ pole WCHAR [32] se ned  priradit.
+Conhost\ConhostMain.cpp(363): error C2675: Un rn¡ !: QuitDisable nedefinuje tento oper tor nebo prevod na typ prijatelny pro preddefinovany oper tor.
+Conhost\ConhostMain.cpp(364): error C2065: DisableAltF4: nedeklarovany identifik tor
+Conhost\ConhostMain.cpp(366): error C2440: =: nejde prev‚st z: bool na: QuitDisable.
+Conhost\ConhostMain.cpp(366): note: Prevod na typ vyctu vyzaduje explicitn¡ pretypov n¡ (static_cast, C-style cast nebo function-style v z vork ch).
+Conhost\ConhostMain.cpp(369): error C2677: Bin rn¡ &&: Nenasel se z dny glob ln¡ oper tor, pro ktery by se dal pouz¡vat typ QuitDisable (nebo neexistuje z dny prijatelny prevod).
+Conhost\ConhostMain.cpp(373): error C2440: =: nejde prev‚st z: bool na: QuitDisable.
+Conhost\ConhostMain.cpp(373): note: Prevod na typ vyctu vyzaduje explicitn¡ pretypov n¡ (static_cast, C-style cast nebo function-style v z vork ch).
+Conhost\ConhostMain.cpp(387): error C2065: DisableFullscreenKeys: nedeklarovany identifik tor
+Conhost\ConhostMain.cpp(397): error C2065: brutalNoResize: nedeklarovany identifik tor
+Conhost\ConhostMain.cpp(504): error C2664: HRESULT SetProcessDpiAwareness(PROCESS_DPI_AWARENESS): Nejde prev‚st argument 1 z: DPI_AWARENESS na: PROCESS_DPI_AWARENESS.
+Conhost\ConhostMain.cpp(504): note: Prevod na typ vyctu vyzaduje explicitn¡ pretypov n¡ (static_cast, C-style cast nebo function-style v z vork ch).
+C:\Program Files (x86)\Windows Kits\10\\include\10.0.19041.0\\um\shellscalingapi.h(81): note: viz deklarace: SetProcessDpiAwareness
+Conhost\ConhostMain.cpp(504): note: pri pokusu o shodu se seznamem argumentu (DPI_AWARENESS)
+Conhost\ConhostMain.cpp(507): error C2065: hOut: nedeklarovany identifik tor
+Conhost\ConhostMain.cpp(524): error C2065: GWL_WNDPROC: nedeklarovany identifik tor
+Conhost\ConhostMain.cpp(553): error C2065: OCR_NORMAL: nedeklarovany identifik tor
+Conhost\ConhostMain.cpp(556): error C2660: timeEndPeriod: Pro funkci nejde pouz¡vat 0 argumentu.
+C:\Program Files (x86)\Windows Kits\10\\include\10.0.19041.0\\um\timeapi.h(86): note: viz deklarace: timeEndPeriod
+Conhost\ConhostMain.cpp(556): note: pri pokusu o shodu se seznamem argumentu ()
+ConsoleUtils.cpp
+Discord.cpp
+CmdMain.cpp
+Cmd\CmdMain.cpp(21): error C2039: atomic_float nen¡ clenem: std.
+C:\Program Files\Microsoft Visual Studio\2022\Preview\VC\Tools\MSVC\14.38.33129\include\atomic(297): note: viz deklarace: std
+Cmd\CmdMain.cpp(21): error C2873: atomic_float: Symbol nejde pouz¡vat v: using-declaration.
+Cmd\CmdMain.cpp(28): error C4430: Chybej¡c¡ specifik tor typu - predpokl d  se typ int. Pozn mka: C++ nepodporuje typ default-int.
+Cmd\CmdMain.cpp(28): error C2146: Chyba syntaxe: Chyb¡ ; pred identifik torem deadzone.
+Cmd\CmdMain.cpp(103): error C2660: MouseUpdate: Pro funkci nejde pouz¡vat 0 argumentu.
+E:\getinput-radish\Source\Cmd\Mouse.h(7): note: viz deklarace: MouseUpdate
+Cmd\CmdMain.cpp(103): note: pri pokusu o shodu se seznamem argumentu ()
+Cmd\CmdMain.cpp(107): error C2065: deadzone: nedeklarovany identifik tor
+Cmd\CmdMain.cpp(126): error C2065: DEFAULT_BUFLEN: nedeklarovany identifik tor
+Cmd\CmdMain.cpp(224): error C3861: MouseDeinit: identifik tor se nenasel
+Cmd\CmdMain.cpp(225): error C3861: KeyboardDeinit: identifik tor se nenasel
+Controller.cpp
+Cmd\Controller.cpp(115): error C3861: sprintf: identifik tor se nenasel
+Keyboard.cpp
+Cmd\Keyboard.cpp(15): warning C4838: Prevod z: int na: BYTE vyzaduje zuzuj¡c¡ prevod.
+Cmd\Keyboard.cpp(15): warning C4838: Prevod z: int na: BYTE vyzaduje zuzuj¡c¡ prevod.
+Cmd\Keyboard.cpp(15): warning C4838: Prevod z: int na: BYTE vyzaduje zuzuj¡c¡ prevod.
+Cmd\Keyboard.cpp(15): warning C4838: Prevod z: int na: BYTE vyzaduje zuzuj¡c¡ prevod.
+Cmd\Keyboard.cpp(15): warning C4838: Prevod z: int na: BYTE vyzaduje zuzuj¡c¡ prevod.
+Cmd\Keyboard.cpp(25): warning C4838: Prevod z: int na: BYTE vyzaduje zuzuj¡c¡ prevod.
+Cmd\Keyboard.cpp(25): warning C4838: Prevod z: int na: BYTE vyzaduje zuzuj¡c¡ prevod.
+Cmd\Keyboard.cpp(25): warning C4838: Prevod z: int na: BYTE vyzaduje zuzuj¡c¡ prevod.
+Cmd\Keyboard.cpp(25): warning C4838: Prevod z: int na: BYTE vyzaduje zuzuj¡c¡ prevod.
+Cmd\Keyboard.cpp(25): warning C4838: Prevod z: int na: BYTE vyzaduje zuzuj¡c¡ prevod.
+Cmd\Keyboard.cpp(25): warning C4838: Prevod z: int na: BYTE vyzaduje zuzuj¡c¡ prevod.
+Mouse.cpp
+Cmd\Mouse.cpp(98): error C3861: GetScaleFactorForMonitor: identifik tor se nenasel
+Generov n¡ k¢du...

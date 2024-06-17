@@ -5,16 +5,20 @@
 #include <timeapi.h>
 
 #include <winsock2.h>
+#include <ws2tcpip.h>
+
+#include <stdio.h>
 
 #include "Mouse.h"
 #include "Keyboard.h"
 #include "Global.h"
+#include "Utilities.h"
 
 #ifdef MODERN_WINDOWS
 #	include "Controller.h"
 #	include <atomic>
-	using std::atomic_int;
-	using std::atomic_float;
+	typedef std::atomic<float> atomic_float;
+	typedef std::atomic<int> atomic_int;
 #else
 #	define atomic_int volatile int
 #	define atomic_float volatile float
@@ -24,7 +28,6 @@ atomic_int sleep_time = 1000 / 40;
 atomic_float deadzone = 0.24f;
 
 SOCKET ipc_socket = INVALID_SOCKET;
-
 
 DWORD CALLBACK CmdCommands(LPVOID data) {
 	HANDLE hPipe = NULL;
@@ -37,7 +40,7 @@ DWORD CALLBACK CmdCommands(LPVOID data) {
 	int pid = GetCurrentProcessId();
 
 	char pipeName[128] = {0};
-	sprintf(pipeName, "\\\\.\\pipe\\GetinputCmd%d", pid);
+	sprintf(pipeName, "\\\\.\\pipe\\BnCmd%d", pid);
 
 	hPipe = CreateNamedPipe(
 		pipeName,
@@ -88,7 +91,7 @@ DWORD CALLBACK CmdMain(void *data) {
 
 	BOOL inFocus = FALSE;
 
-	int sleep_time = 1000 / getenvnum_ex("getinput_pollrate", 40);
+	int sleep_time = 1000 / getenvnum_ex("bn_pollrate", 40);
 	unsigned long long begin, took;
 
 	while(1) {
@@ -107,7 +110,7 @@ DWORD CALLBACK CmdMain(void *data) {
 		}
 
 		took = GetTickCount64() - begin;
-		Sleep(_max(0, sleep_time - took));
+		Sleep(max(0, sleep_time - took));
 	}
 
 	return NULL;
@@ -143,31 +146,34 @@ SOCKET InitSocket(const char *address, const char *port) {
 		return 1;
 	}
 
-	// Attempt to connect to an address until one succeeds
-	for(ptr=result; ptr != NULL; ptr=ptr->ai_next) {
+	do {
+		// Attempt to connect to an address until one succeeds
+		for(ptr=result; ptr != NULL; ptr=ptr->ai_next) {
 
-		// Create a SOCKET for connecting to server
-		ConnectSocket = socket(
-			ptr->ai_family,
-			ptr->ai_socktype,
-			ptr->ai_protocol
-		);
+			// Create a SOCKET for connecting to server
+			ConnectSocket = socket(
+				ptr->ai_family,
+				ptr->ai_socktype,
+				ptr->ai_protocol
+			);
 
-		if (ConnectSocket == INVALID_SOCKET) {
-			printf("socket failed with error: %ld\n", WSAGetLastError());
-			WSACleanup();
-			return 1;
+			if (ConnectSocket == INVALID_SOCKET) {
+				printf("socket failed with error: %ld\n", WSAGetLastError());
+				WSACleanup();
+				return 1;
+			}
+
+			// Connect to server.
+			iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
+			if (iResult != SOCKET_ERROR) {
+				break;
+			} else {
+				closesocket(ConnectSocket);
+				ConnectSocket = INVALID_SOCKET;
+				continue;
+			}
 		}
-
-		// Connect to server.
-		iResult = connect( ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
-		if (iResult == SOCKET_ERROR) {
-			closesocket(ConnectSocket);
-			ConnectSocket = INVALID_SOCKET;
-			continue;
-		}
-		break;
-	}
+	} while(ConnectSocket == INVALID_SOCKET);
 
 	freeaddrinfo(result);
 
@@ -208,15 +214,15 @@ BOOL DllMain_load_cmd(HINSTANCE hInst, LPVOID lpReserved) {
 		NULL
 	);
 
-	SetEnvironmentVariable("getinputInitialized", "1");
-	SetEnvironmentVariable("PipeId", itoa_(GetCurrentProcessId()));
+	SetEnvironmentVariable("bn_initialized", "1");
+	SetEnvironmentVariable("bn_pipeid", itoa_(GetCurrentProcessId()));
 
 	return TRUE;
 }
 
 BOOL DllMain_unload_cmd(HINSTANCE hInst, LPVOID lpReserved) {
 
-	timeEndPeriod();
+	timeEndPeriod(1);
 
 	MouseDeinit();
 	KeyboardDeinit();

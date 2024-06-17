@@ -7,7 +7,7 @@ inline T _max(T a, T b) {
 
 inline constexpr int int_ceil(float number) {
 	int inum = (int)(number);
-	return ((float)inum != num) ? inum + 1 : inum;
+	return ((float)inum != number) ? inum + 1 : inum;
 }
 
 char* itoa_(int i);

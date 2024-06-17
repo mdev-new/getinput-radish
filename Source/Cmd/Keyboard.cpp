@@ -1,7 +1,11 @@
 #include "Keyboard.h"
 
+#include "Utilities.h"
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+
+#include <stdio.h>
 
 // i was way too lazy to check for values individually, so this was created
 // this technically disallows code 0xFF in some cases but once that becomes a problem

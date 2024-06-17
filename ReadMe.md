@@ -4,6 +4,8 @@
 - Kenan238
 
 # To do
+- [x] Project Name -> Batch native
+- [ ] Unify var names
 - [ ] Fix up getinput code
  - [ ] Don't set rebind the arrow cursor for the mouse
  - [ ] Error checking

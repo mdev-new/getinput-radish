@@ -1,4 +1,7 @@
 #include "Utilities.h"
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#include <stdlib.h>
 
 char* itoa_(int i) {
 	static char buffer[21] = { 0 };

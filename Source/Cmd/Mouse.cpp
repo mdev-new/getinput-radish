@@ -3,6 +3,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <shellscalingapi.h>
 
 LRESULT CALLBACK LLMouseHook(int nCode, WPARAM wParam, LPARAM lParam) {
 	MSLLHOOKSTRUCT* info = (MSLLHOOKSTRUCT*)lParam;
@@ -49,7 +50,7 @@ void MouseInit() {
 	}
 }
 
-void MouseUpdate() {
+void MouseUpdate(BOOL isRaster) {
 
 #ifdef MODERN_WINDOWS
 	static CONSOLE_FONT_INFO info = { 0 };
@@ -66,7 +67,7 @@ void MouseUpdate() {
 	static int scale = 100, prevScale = scale;
 	static float fscalex = scale / 100.f, fscaley = fscalex;
 
-	static const HANDLE hCon = GetConsoleWindow();
+	static const HWND hCon = GetConsoleWindow();
 	static const HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
 
 	// Mouse buttons
@@ -95,7 +96,9 @@ void MouseUpdate() {
 #ifdef VERY_MODERN_WINDOWS
 
 	monitor = MonitorFromWindow(hCon, MONITOR_DEFAULTTONEAREST);
-	GetScaleFactorForMonitorProc(monitor, &scale);
+	if(S_OK != GetScaleFactorForMonitor(monitor, &scale)) {
+
+	}
 
 	if (prevScale != scale) {
 		// this somehow (mostly) works, !!DO NOT TOUCH!!

@@ -3,6 +3,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
+#include "Utilities.h"
+
 typedef struct _controller_value {
 	WORD bitmask;
 	const char* str;

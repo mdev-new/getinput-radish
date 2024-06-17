@@ -11,6 +11,8 @@ volatile HMODULE hDll = NULL;
 #include "CmdMain.h"
 #include "ConhostMain.h"
 
+#include "Utilities.h"
+
 DWORD getppid() {
 	HANDLE hSnapshot;
 	PROCESSENTRY32 pe32;
@@ -130,7 +132,7 @@ NOMANGLE __declspec(dllexport) BOOL APIENTRY DllMain(HINSTANCE hInst, DWORD dwRe
 #endif
 
 	char name[MAX_PATH];
-	GetModuleFileName(NULL, name, sizeof(name));
+	GetModuleFileName(NULL, name, MAX_PATH);
 
 	bool isRunDll = lstrcmp("rundll32.exe", name + lstrlen(name) - 12) == 0;
 
@@ -166,7 +168,7 @@ NOMANGLE __declspec(dllexport) BOOL APIENTRY DllMain(HINSTANCE hInst, DWORD dwRe
 			if(conhostPid == 0) {
 				// We're not in conhost, so we inject ourselves into it...
 				conhostPid = getconhost();
-				SetEnvironmentVariable("#getinputInternal#conhostPid", itoa_(conhostPid))
+				SetEnvironmentVariable("#getinputInternal#conhostPid", itoa_(conhostPid));
 				hookSelfToProcess(conhostPid);
 			}
 
@@ -179,12 +181,30 @@ NOMANGLE __declspec(dllexport) BOOL APIENTRY DllMain(HINSTANCE hInst, DWORD dwRe
 		// We create the process that will provide us the IPC
 		// and audio etc
 
-		CreateProcess(
+		GetModuleFileName(hInst, name, MAX_PATH);
+		PathRemoveFileSpec(name);
 
+		strcat(name, "bn_ipc.exe");
+
+		PROCESS_INFORMATION pInfo;
+		STARTUPINFOA startupInfo = { 0 };
+		startupInfo.cb = sizeof(STARTUPINFOA);
+
+		HANDLE hProc = CreateProcess(
+			name,
+			NULL,
+			NULL,
+			NULL,
+			TRUE,
+			NORMAL_PRIORITY_CLASS,
+			NULL,
+			NULL,
+			&startupInfo,
+			&pInfo
 		);
 
-
 		return DllMain_load_cmd(hInst, lpReserved);
+
 #endif
 
 	} else if(dwReason == DLL_PROCESS_DETACH) {

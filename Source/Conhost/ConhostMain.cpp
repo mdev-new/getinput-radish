@@ -1,13 +1,26 @@
 #include "ConhostMain.h"
 
 #define WIN32_LEAN_AND_MEAN
+#define OEMRESOURCE
 #include <Windows.h>
 #include <winsock2.h>
+#include <ws2tcpip.h>
+#include <timeapi.h>
+
+#ifdef VERY_MODERN_WINDOWS
+#	include <shellscalingapi.h>
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "Global.h"
 
+#ifndef MODERN_WINDOWS
 HHOOK noFullscreenHook = NULL;
 HHOOK noAltF4Hook = NULL;
+#endif
+
 
 WNDPROC origWindowProc;
 
@@ -15,13 +28,13 @@ enum class QuitDisable {
 	QUIT_ENABLED = 0, // 0b00
 	QUIT_DISABLED_SOFT = 1, // 0b01
 	QUIT_DISABLED_HARD = 3  // 0b11
-}
+};
 
 enum class ResizeDisable {
 	RESIZE_ENABLED = 0, // 0b00
 	RESIZE_DISABLED = 1, // 0b01
 	RESIZE_FULLSCREEN_DISABLED = 3  // 0b11
-}
+};
 
 short rasterX, rasterY;
 short screenX, screenY;
@@ -29,7 +42,7 @@ short mLimitX, mLimitY;
 ResizeDisable resize;
 QuitDisable noQuit;
 CONSOLE_FONT_INFOEX base_font;
-CONSOLE_FONT_INFO current_font;
+CONSOLE_FONT_INFOEX current_font;
 
 
 void DisableCloseButton(HWND hwnd)
@@ -91,7 +104,7 @@ DWORD CALLBACK IpcClientHandler(LPVOID data) {
 
 	SOCKET ClientSocket = (SOCKET)data;
 
-	int iResult;
+	int iResult, iSendResult;
 	const int recvbuflen = 512;
 
 	char buffer[512] = {0}; // log buffer for sprintf
@@ -172,7 +185,7 @@ DWORD CALLBACK ConhostIPC(LPVOID data) {
 	hints.ai_flags = AI_PASSIVE;
 
 	// Resolve the local address and port to be used by the server
-	iResult = getaddrinfo(NULL, DEFAULT_PORT, &hints, &address_info);
+	iResult = getaddrinfo(NULL, IPC_PORT, &hints, &address_info);
 	if (iResult != 0) {
 		sprintf(buffer, "getaddrinfo failed: %d", iResult);
 		MessageBox(0, buffer, "WinSock error", MB_ICONERROR);
@@ -185,24 +198,24 @@ DWORD CALLBACK ConhostIPC(LPVOID data) {
 	if (ListenSocket == INVALID_SOCKET) {
 		sprintf(buffer, "socket failed with error: %ld", WSAGetLastError());
 		MessageBox(0, buffer, "WinSock error", MB_ICONERROR);
-		freeaddrinfo(result);
+		freeaddrinfo(address_info);
 		WSACleanup();
 		return 1;
 	}
 
 	// Setup the TCP listening socket
-	iResult = bind(ListenSocket, result->ai_addr, (int)result->ai_addrlen);
+	iResult = bind(ListenSocket, address_info->ai_addr, (int)address_info->ai_addrlen);
 	if (iResult == SOCKET_ERROR) {
 		sprintf(buffer, "bind failed with error: %d", WSAGetLastError());
 		MessageBox(0, buffer, "WinSock error", MB_ICONERROR);
-		freeaddrinfo(result);
+		freeaddrinfo(address_info);
 		closesocket(ListenSocket);
 		WSACleanup();
 		return 1;
 	}
 
 	// We don't need the address info anymore.
-	freeaddrinfo(result);
+	freeaddrinfo(address_info);
 
 	if (listen(ListenSocket, SOMAXCONN) == SOCKET_ERROR) {
 		sprintf(buffer, "Listen failed with error: %ld", WSAGetLastError());
@@ -253,13 +266,19 @@ DWORD CALLBACK ConhostCommands(LPVOID data) {
 	DWORD dwRead = 0;
 
 	HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+	HWND hCon = GetConsoleWindow();
 
 	const int MAX_CMD_LEN = 512;
 
 	char inbuf[MAX_CMD_LEN] = { 0 };
 
+	int pid = GetCurrentProcessId();
+
+	char pipeName[128] = {0};
+	sprintf(pipeName, "\\\\.\\pipe\\BnConhost%d", pid);
+
 	hPipe = CreateNamedPipe(
-		"\\\\.\\pipe\\GetinputConhost",
+		pipeName,
 		PIPE_ACCESS_INBOUND, // todo both way pipe
 		PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
 		1,
@@ -318,12 +337,12 @@ DWORD CALLBACK ConhostCommands(LPVOID data) {
 				short rastery = atoi(word3);
 
 				if(rasterx && rastery) {
-					current_font.nFont = 0,
+					current_font.nFont = 0;
 					current_font.dwFontSize = { rasterx, rastery };
-					current_font.FontFamily = FF_DONTCARE,
-					current_font.FontWeight = FW_NORMAL,
-					current_font.FaceName = L"Terminal"
-					SetCurrentConsoleFontEx(hOut, FALSE, &cfi);					
+					current_font.FontFamily = FF_DONTCARE;
+					current_font.FontWeight = FW_NORMAL;
+					current_font.FaceName = L"Terminal";
+					SetCurrentConsoleFontEx(hOut, FALSE, &current_font);					
 				}
 
 #else
@@ -344,13 +363,13 @@ DWORD CALLBACK ConhostCommands(LPVOID data) {
 			}
 
 			else if (strcmp(word1, "SetQuit") == 0) {
-				if (strcmp(word2, "DisableQuit") == 0 && !noQuit) {
+				if (strcmp(word2, "DisableQuit") == 0 && noQuit == QuitDisable::QUIT_ENABLED) {
 					noAltF4Hook = SetWindowsHookEx(WH_KEYBOARD_LL, DisableAltF4, GetModuleHandle(NULL), 0);
 					DisableCloseButton(hCon);
 					noQuit = true;
 				}
 
-				else if (strcmp(word2, "EnableQuit") == 0 && noQuit) {
+				else if (strcmp(word2, "EnableQuit") == 0 && noQuit != QuitDisable::QUIT_ENABLED) {
 					UnhookWindowsHookEx(noAltF4Hook);
 					noAltF4Hook = NULL;
 					EnableCloseButton(hCon);
@@ -367,9 +386,9 @@ DWORD CALLBACK ConhostCommands(LPVOID data) {
 					SetWindowLong(hCon, GWL_STYLE, windowStyle);
 					DrawMenuBar(hCon);
 
-					if (brutalNoResize) {
-						noFullscreenHook = SetWindowsHookEx(WH_KEYBOARD_LL, DisableFullscreenKeys, GetModuleHandle(NULL), 0);
-					}
+#ifndef MODERN_WINDOWS
+					noFullscreenHook = SetWindowsHookEx(WH_KEYBOARD_LL, DisableFullscreenKeys, GetModuleHandle(NULL), 0);
+#endif
 				}
 
 				else if (strcmp(word2, "EnableResize") == 0) {
@@ -378,10 +397,10 @@ DWORD CALLBACK ConhostCommands(LPVOID data) {
 					SetWindowLong(hCon, GWL_STYLE, windowStyle);
 					DrawMenuBar(hCon);
 
-					if (brutalNoResize) {
-						UnhookWindowsHookEx(noFullscreenHook);
-						noFullscreenHook = NULL;
-					}
+#ifndef MODERN_WINDOWS
+					UnhookWindowsHookEx(noFullscreenHook);
+					noFullscreenHook = NULL;
+#endif
 				}
 			}
 
@@ -459,13 +478,15 @@ DWORD CALLBACK ConhostMain(void *data) {
 	int sleep_time = 1000 / 40;
 	unsigned long long begin, took;
 
+	HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+
 	while(1) {
 		begin = GetTickCount64();
 
 		SetConsoleMode(hIn, ENABLE_EXTENDED_FLAGS & ~(ENABLE_QUICK_EDIT_MODE));
 
 		took = GetTickCount64() - begin;
-		Sleep(_max(0, sleep_time - took));
+		Sleep(max(0, sleep_time - took));
 	}
 
 	return NULL;
@@ -479,14 +500,14 @@ BOOL DllMain_load_conhost(HINSTANCE hInst, LPVOID lpReserved) {
 
 	timeBeginPeriod(1);
 
-	ZeroMemory(&current_font, sizeof(CONSOLE_FONT_INFO));
-	current_font.cbSize = sizeof(CONSOLE_FONT_INFO);
+	ZeroMemory(&current_font, sizeof(CONSOLE_FONT_INFOEX));
+	current_font.cbSize = sizeof(CONSOLE_FONT_INFOEX);
 
 #ifdef VERY_MODERN_WINDOWS
 	SetProcessDpiAwareness(DPI_AWARENESS_UNAWARE);
 #endif
 
-	GetCurrentConsoleFont(hOut, FALSE, &base_font);
+	GetCurrentConsoleFontEx(hOut, FALSE, &base_font);
 
 	HANDLE hCommandThread = CreateThread(
 		NULL,
@@ -556,7 +577,10 @@ BOOL WINAPI ExitHandler(DWORD dwCtrlType) {
 		dwCtrlType == CTRL_SHUTDOWN_EVENT
 	) {
 		DllMain_unload_conhost(hInstance, NULL);
+		return TRUE;
 	}
+
+	return FALSE;
 
 }
 
@@ -568,14 +592,6 @@ INT WINAPI WinMain(
 ) {
 	hInstance = hinst;
 
-	// Not sure if this will work.
-	// Since the documentation states that this is for
-	// processes that have a console attached to them...
-	// But what if WE're the console...??
-	// On a second thought, we won't ever be running this
-	// in Conhost though... Since this is the Win2k standalone
-	// executable part, it should inherit the console from CMD...
-	// So yeah, it should technically work.
 	SetConsoleCtrlHandler(ExitHandler,TRUE);
 }
 

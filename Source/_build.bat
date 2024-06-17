@@ -25,8 +25,8 @@ exit /b
 :buildWin10
 rem Everything - mouse, keyboard, controller, audio, network
 set files=*.cpp Conhost\*.cpp Cmd\*.cpp
-set libs=ntdll.lib user32.lib shell32.lib
-set flags=/LD /DMODERN_WINDOWS /DVERY_MODERN_WINDOWS
+set libs=ntdll.lib user32.lib shell32.lib shcore.lib
+set flags=/std:c++23 /LD /DMODERN_WINDOWS /DVERY_MODERN_WINDOWS
 
 call :build_generic
 exit /b
@@ -44,8 +44,11 @@ exit /b
 set libs=ntdll.lib user32.lib shell32.lib
 set flags=
 
-cl /LD !flags! *.cpp Cmd\CmdMain.cpp Cmd\Keyboard.cpp Cmd\Mouse.cpp !libs! /O2 /I. /ICmd /IConhost /EHsc /link /out:bn%bits%_%os%.dll
-cl !flags! Conhost\ConhostMain.cpp Conhost\Audio.cpp Conhost\ConsoleUtils.cpp !libs! /O2 /I. /ICmd /IConhost /EHsc /link /out:bn%bits%_%os%_ipc.exe
+set cmdfiles=*.cpp Cmd\CmdMain.cpp Cmd\Keyboard.cpp Cmd\Mouse.cpp
+set conhostfiles=Conhost\ConhostMain.cpp Conhost\Audio.cpp Conhost\ConsoleUtils.cpp
+
+cl /LD !flags! !libs! !cmdfiles! /O2 /I. /ICmd /IConhost /EHsc /link /out:bn%bits%_%os%.dll
+cl !flags! !libs! !conhostfiles! /O2 /I. /ICmd /IConhost /EHsc /link /out:bn_ipc.exe
 exit /b
 
 :build_generic
